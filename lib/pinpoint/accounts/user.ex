@@ -3,6 +3,7 @@ defmodule Pinpoint.Accounts.User do
   import Ecto.Changeset
 
   schema "users" do
+    field :name, :string
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
@@ -36,9 +37,15 @@ defmodule Pinpoint.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password])
+    |> cast(attrs, [:name, :email, :password])
+    |> validate_name(opts)
     |> validate_email(opts)
     |> validate_password(opts)
+  end
+
+  defp validate_name(changeset, _opts) do
+    changeset
+    |> validate_required([:name])
   end
 
   defp validate_email(changeset, opts) do
@@ -82,6 +89,21 @@ defmodule Pinpoint.Accounts.User do
       |> unique_constraint(:email)
     else
       changeset
+    end
+  end
+
+  @doc """
+  A user changeset for changing the name.
+
+  It requires the name to change otherwise an error is added.
+  """
+  def name_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:name])
+    |> validate_name(opts)
+    |> case do
+      %{changes: %{name: _}} = changeset -> changeset
+      %{} = changeset -> add_error(changeset, :name, "did not change")
     end
   end
 
