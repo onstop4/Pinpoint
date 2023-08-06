@@ -2,12 +2,25 @@ defmodule Pinpoint.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Pinpoint.Accounts.User
+  alias Pinpoint.Relationships.Relationship
+
   schema "users" do
     field :name, :string
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :naive_datetime
+
+    many_to_many :relationships, User,
+      join_through: Relationship,
+      join_keys: [from_id: :id, to_id: :id],
+      on_delete: :delete_all
+
+    many_to_many :reverse_relationships, User,
+      join_through: Relationship,
+      join_keys: [to_id: :id, from_id: :id],
+      on_delete: :delete_all
 
     timestamps()
   end
