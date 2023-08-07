@@ -4,6 +4,7 @@ defmodule Pinpoint.Relationships do
   """
 
   import Ecto.Query, warn: false
+  alias Pinpoint.Relationships.FriendshipInfo
   alias Pinpoint.Accounts.User
   alias Pinpoint.Repo
 
@@ -13,26 +14,36 @@ defmodule Pinpoint.Relationships do
     Repo.all(Relationship)
   end
 
-  def list_relationships_of_user_with_status(user, status) do
-    user
-    |> generate_query_for_relationship(status)
-    |> Repo.all()
-  end
-
-  def list_friends_of_user_with_info(user) do
-    user
-    |> generate_query_for_relationship(:friends)
-    |> preload([:friendship_info])
-    |> Repo.all()
-  end
-
-  defp generate_query_for_relationship(user_from, status) do
+  def list_relationships_of_user_with_status(user_from, status) do
     from(relationship in Relationship,
       where: relationship.from_id == ^user_from.id and relationship.status == ^status,
       join: user_to in User,
       on: user_to.id == relationship.to_id,
       select: user_to
     )
+    |> Repo.all()
+  end
+
+  def list_relationships_to_user_with_status(user_to, status) do
+    from(relationship in Relationship,
+      where: relationship.to_id == ^user_to.id and relationship.status == ^status,
+      join: user_from in User,
+      on: user_from.id == relationship.from_id,
+      select: user_from
+    )
+    |> Repo.all()
+  end
+
+  def list_friends_with_info(user_from) do
+    from(relationship in Relationship,
+      where: relationship.from_id == ^user_from.id and relationship.status == :friend,
+      join: user_to in User,
+      on: user_to.id == relationship.to_id,
+      join: friendship_info in FriendshipInfo,
+      on: relationship.id == friendship_info.relationship_id,
+      select: %{user: user_to, friendship_info: friendship_info}
+    )
+    |> Repo.all()
   end
 
   @doc """
@@ -73,21 +84,79 @@ defmodule Pinpoint.Relationships do
     |> Repo.insert()
   end
 
-  def create_friend_request(%User{id: from_user_id}, %User{id: to_user_id}) do
-    create_relationship(%{from_id: from_user_id, to_id: to_user_id, status: :pending_friend})
-  end
-
   def confirm_friend_request(
         %Relationship{from_id: from_user_id, to_id: to_user_id} = relationship
       ) do
     Repo.transaction(fn ->
-      with {:ok, from_to_relationship} <- update_relationship(relationship, %{status: :friend}),
-           {:ok, to_from_relationship} <-
+      with {:ok, to_from_relationship} <-
              create_relationship(%{from_id: to_user_id, to_id: from_user_id, status: :friend}),
-           {:ok, _} <- create_friendship_info(%{relationship_id: from_to_relationship}) do
-        {:ok, from_to_relationship, to_from_relationship}
+           {:ok, from_to_relationship} <- update_relationship(relationship, %{status: :friend}),
+           {:ok, _} <- create_friendship_info(%{relationship_id: from_to_relationship.id}),
+           {:ok, _} <- create_friendship_info(%{relationship_id: to_from_relationship.id}) do
+        {:ok, {from_to_relationship, to_from_relationship}}
       end
     end)
+  end
+
+  def create_friend_request(%User{id: from_user_id}, %User{id: to_user_id}) do
+    create_friend_request(from_user_id, to_user_id)
+  end
+
+  def create_friend_request(from_user_id, to_user_id)
+      when is_integer(from_user_id) and is_integer(to_user_id) do
+    create_relationship(%{from_id: from_user_id, to_id: to_user_id, status: :pending_friend})
+  end
+
+  def delete_all_relationships(from_user_id, to_user_id)
+      when is_integer(from_user_id) and is_integer(to_user_id) do
+    Repo.delete_all(
+      from(relationship in Relationship,
+        where:
+          (relationship.from_id == ^from_user_id and relationship.to_id == ^to_user_id) or
+            (relationship.from_id == ^to_user_id and relationship.to_id == ^from_user_id)
+      )
+    )
+
+    :ok
+  end
+
+  def delete_all_relationships(%User{id: from_user_id}, %User{id: to_user_id}) do
+    from_to_relationship = get_relationship!(from_user_id, to_user_id)
+    to_from_relationship = get_relationship!(to_user_id, from_user_id)
+
+    Repo.transaction(fn ->
+      {:ok, _} =
+        delete_relationship(from_to_relationship)
+
+      {:ok, _} =
+        delete_relationship(to_from_relationship)
+    end)
+
+    :ok
+  end
+
+  def delete_all_relationships(%Relationship{from_id: from_user_id, to_id: to_user_id}) do
+    delete_all_relationships(from_user_id, to_user_id)
+  end
+
+  def block_user(from_user_id, to_user_id)
+      when is_integer(from_user_id) and is_integer(to_user_id) do
+    Repo.transaction(fn ->
+      delete_all_relationships(from_user_id, to_user_id)
+
+      {:ok, from_to_relationship} =
+        create_relationship(%{from_id: from_user_id, to_id: to_user_id, status: :blocked})
+
+      from_to_relationship
+    end)
+  end
+
+  def block_user(%User{id: from_user_id}, %User{id: to_user_id}) do
+    block_user(from_user_id, to_user_id)
+  end
+
+  def block_user(%Relationship{from_id: from_user_id, to_id: to_user_id}) do
+    block_user(from_user_id, to_user_id)
   end
 
   @doc """

@@ -68,6 +68,12 @@ defmodule PinpointWeb.Router do
       on_mount: [{PinpointWeb.UserAuth, :ensure_authenticated}] do
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
+
+      live "/relationships/friends", RelationshipLive.Friends, :index
+      live "/relationships/pending", RelationshipLive.SentFriendRequests, :index
+      live "/relationships/new", RelationshipLive.SentFriendRequests, :new
+      live "/relationships/received", RelationshipLive.ReceivedFriendRequests, :index
+      live "/relationships/blocked", RelationshipLive.Blocked, :index
     end
   end
 
