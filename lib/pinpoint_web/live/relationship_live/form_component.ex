@@ -2,7 +2,7 @@ defmodule PinpointWeb.RelationshipLive.FormComponent do
   alias Pinpoint.Accounts
   use PinpointWeb, :live_component
 
-  alias Pinpoint.Relationships
+  alias Pinpoint.Relationships.RelationshipRepo
 
   @impl true
   def render(assigns) do
@@ -28,8 +28,8 @@ defmodule PinpointWeb.RelationshipLive.FormComponent do
   end
 
   # @impl true
-  # def update(%{recipient_user: recipient_user} = assigns, socket) do
-  #   changeset = Accounts.change_user_email(recipient_user)
+  # def update(%{other_user: other_user} = assigns, socket) do
+  #   changeset = Accounts.change_user_email(other_user)
 
   #   {:ok,
   #    socket
@@ -38,10 +38,10 @@ defmodule PinpointWeb.RelationshipLive.FormComponent do
   # end
 
   # @impl true
-  # def handle_event("validate", %{"recipient_user" => recipient_user_params}, socket) do
+  # def handle_event("validate", %{"other_user" => other_user_params}, socket) do
   #   changeset =
-  #     socket.assigns.recipient_user
-  #     |> Foos.change_foo(recipient_user_params)
+  #     socket.assigns.other_user
+  #     |> Foos.change_foo(other_user_params)
   #     |> Map.put(:action, :validate)
 
   #   {:noreply, assign_form(socket, changeset)}
@@ -57,17 +57,16 @@ defmodule PinpointWeb.RelationshipLive.FormComponent do
     current_user = socket.assigns.current_user
 
     with current_user_email when current_user_email != recipient_email <- current_user.email,
-         recipient_user when not is_nil(recipient_user) <-
+         other_user when not is_nil(other_user) <-
            Accounts.get_user_by_email(recipient_email),
+         nil <- RelationshipRepo.get_relationship(other_user.id, current_user.id),
          {:ok, _} <-
-           Relationships.create_relationship(%{
+           RelationshipRepo.create_relationship(%{
              from_id: current_user.id,
-             to_id: recipient_user.id,
+             to_id: other_user.id,
              status: :pending_friend
            }) do
-      notify_parent({:new_friend_request, recipient_user})
-
-      IO.puts("success. will navigate to #{socket.assigns.patch}")
+      notify_parent({:new_friend_request, other_user})
 
       {:noreply,
        socket
@@ -75,13 +74,11 @@ defmodule PinpointWeb.RelationshipLive.FormComponent do
        |> push_patch(to: socket.assigns.patch)}
     else
       _ ->
-        IO.puts("failure")
-
         {:noreply,
          put_flash(
            socket,
            :error,
-           "Could not send request. Make sure you entered a valid email address that is associated with an account that's not your own."
+           "Could not send request. Make sure you entered a valid email address that is associated with an account that hasn't blocked you."
          )}
     end
   end
@@ -89,10 +86,10 @@ defmodule PinpointWeb.RelationshipLive.FormComponent do
   # defp save_relationship(socket, :new, %{"email" => recipient_email}) do
   #   current_user = socket.assigns.current_user
 
-  #   with recipient_user when not is_nil(current_user) <-
+  #   with other_user when not is_nil(current_user) <-
   #          Accounts.get_user_by_email(recipient_email),
-  #        {:ok, _} <- Relationships.create_friend_request(current_user, recipient_user) do
-  #     notify_parent({:new_friend_request, recipient_user})
+  #        {:ok, _} <- Relationships.create_friend_request(current_user, other_user) do
+  #     notify_parent({:new_friend_request, other_user})
 
   #     {:noreply,
   #      socket

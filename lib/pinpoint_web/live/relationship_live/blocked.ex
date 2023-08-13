@@ -33,7 +33,7 @@ defmodule PinpointWeb.RelationshipLive.Blocked do
       socket
       |> stream(
         :other_users,
-        Relationships.list_relationships_of_user_with_status(current_user, :blocked)
+        Relationships.Finders.ListRelatedUsersWithStatus.find(current_user.id, :blocked)
       )
 
     {:ok, socket}
@@ -51,12 +51,15 @@ defmodule PinpointWeb.RelationshipLive.Blocked do
   end
 
   @impl true
-  def handle_event("unblock", %{"id" => recipient_user_id}, socket) do
+  def handle_event("unblock", %{"id" => other_user_id}, socket) do
     relationship =
-      Relationships.get_relationship!(socket.assigns.current_user.id, recipient_user_id)
+      Relationships.RelationshipRepo.get_relationship!(
+        socket.assigns.current_user.id,
+        other_user_id
+      )
 
-    {:ok, _} = Relationships.delete_relationship(relationship)
+    {:ok, _} = Relationships.RelationshipRepo.delete_relationship(relationship)
 
-    {:noreply, stream_delete(socket, :other_users, %User{id: recipient_user_id})}
+    {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 end

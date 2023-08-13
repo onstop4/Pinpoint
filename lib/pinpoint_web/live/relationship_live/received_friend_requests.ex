@@ -3,6 +3,7 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
   use PinpointWeb, :live_view
 
   alias Pinpoint.Relationships
+  alias Pinpoint.Relationships.Relationship
   alias PinpointWeb.RelationshipLive.OtherComponents
 
   @impl true
@@ -37,7 +38,7 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
           phx-click={JS.push("block", value: %{id: other_user_id}) |> hide("##{other_user_id}")}
           data-confirm="Are you sure?"
         >
-          block
+          Block
         </.link>
       </:action>
     </OtherComponents.user_table>
@@ -67,7 +68,9 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
       socket
       |> stream(
         :other_users,
-        Relationships.list_relationships_to_user_with_status(current_user, :pending_friend)
+        Relationships.Finders.ListRelatedUsersWithStatus.find(current_user, :pending_friend,
+          reverse: true
+        )
       )
 
     {:ok, socket}
@@ -93,29 +96,35 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
   @impl true
   def handle_event("accept", %{"id" => other_user_id}, socket) do
     relationship =
-      Relationships.get_relationship!(other_user_id, socket.assigns.current_user.id)
+      Relationships.RelationshipRepo.get_relationship!(
+        other_user_id,
+        socket.assigns.current_user.id
+      )
 
-    {:ok, _} = Relationships.confirm_friend_request(relationship)
+    {:ok, _} = Relationships.Services.ConfirmFriendRequest.call(relationship)
 
     {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 
   @impl true
   def handle_event("decline", %{"id" => other_user_id}, socket) do
-    relationship =
-      Relationships.get_relationship!(other_user_id, socket.assigns.current_user.id)
+    %Relationship{status: :pending_friend} =
+      relationship =
+      Relationships.RelationshipRepo.get_relationship!(
+        other_user_id,
+        socket.assigns.current_user.id
+      )
 
-    {:ok, _} = Relationships.delete_relationship(relationship)
+    {:ok, _} = Relationships.RelationshipRepo.delete_relationship(relationship)
 
     {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 
   @impl true
-  def handle_event("block", %{"id" => recipient_user_id}, socket) do
-    recipient_user = %User{id: recipient_user_id}
+  def handle_event("block", %{"id" => other_user_id}, socket) do
+    {:ok, _} =
+      Relationships.Services.BlockUser.call(socket.assigns.current_user.id, other_user_id)
 
-    {:ok, _} = Relationships.block_user(socket.assigns.current_user, recipient_user)
-
-    {:noreply, stream_delete(socket, :other_users, recipient_user)}
+    {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 end

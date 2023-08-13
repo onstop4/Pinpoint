@@ -53,7 +53,7 @@ defmodule PinpointWeb.RelationshipLive.SentFriendRequests do
       socket
       |> stream(
         :other_users,
-        Relationships.list_relationships_of_user_with_status(current_user, :pending_friend)
+        Relationships.Finders.ListRelatedUsersWithStatus.find(current_user.id, :pending_friend)
       )
 
     {:ok, socket}
@@ -78,19 +78,17 @@ defmodule PinpointWeb.RelationshipLive.SentFriendRequests do
 
   @impl true
   def handle_info(
-        {PinpointWeb.RelationshipLive.FormComponent, {:new_friend_request, recipient_user}},
+        {PinpointWeb.RelationshipLive.FormComponent, {:new_friend_request, other_user}},
         socket
       ) do
-    {:noreply, stream_insert(socket, :other_users, recipient_user)}
+    {:noreply, stream_insert(socket, :other_users, other_user)}
   end
 
   @impl true
-  def handle_event("delete", %{"id" => recipient_user_id}, socket) do
-    relationship =
-      Relationships.get_relationship!(socket.assigns.current_user.id, recipient_user_id)
+  def handle_event("delete", %{"id" => other_user_id}, socket) do
+    {:ok, _} =
+      Relationships.Services.BlockUser.call(socket.assigns.current_user.id, other_user_id)
 
-    {:ok, _} = Relationships.delete_relationship(relationship)
-
-    {:noreply, stream_delete(socket, :other_users, %User{id: recipient_user_id})}
+    {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 end

@@ -1,8 +1,10 @@
 defmodule PinpointWeb.RelationshipLive.Friends do
+  alias Pinpoint.Accounts
   alias Pinpoint.Accounts.User
   use PinpointWeb, :live_view
 
   alias Pinpoint.Relationships
+  alias Pinpoint.Relationships.{FriendshipInfoRepo, Relationship}
 
   @impl true
   def render(assigns) do
@@ -24,7 +26,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
           <.link
             phx-click={
               JS.push("set_location_sharing_status",
-                value: %{info_id: friendship_info.relationship_id, status: false}
+                value: %{id: user.id, status: false}
               )
             }
             data-confirm="Are you sure?"
@@ -35,7 +37,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
           <.link
             phx-click={
               JS.push("set_location_sharing_status",
-                value: %{info_id: friendship_info.relationship_id, status: true}
+                value: %{id: user.id, status: true}
               )
             }
             data-confirm="Are you sure?"
@@ -69,7 +71,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
       |> stream_configure(:friends_with_info, dom_id: &"user-#{&1.user.id}")
       |> stream(
         :friends_with_info,
-        Relationships.list_friends_with_info(current_user)
+        Relationships.Finders.ListFriendsWithInfo.find(current_user.id)
       )
 
     {:ok, socket}
@@ -89,40 +91,48 @@ defmodule PinpointWeb.RelationshipLive.Friends do
   @impl true
   def handle_event(
         "set_location_sharing_status",
-        %{"info_id" => friendship_info_id, "status" => status},
+        %{"id" => other_user_id, "status" => status},
         socket
       ) do
-    Relationships.get_friendship_info!(friendship_info_id)
-    |> Relationships.update_friendship_info(%{share_location: status})
-    |> IO.inspect()
-
     current_user = socket.assigns.current_user
 
+    %Relationship{status: :friend, id: relationship_id} =
+      Relationships.RelationshipRepo.get_relationship!(current_user.id, other_user_id)
+
+    friendship_info = FriendshipInfoRepo.get_friendship_info!(relationship_id)
+
+    {:ok, friendship_info} =
+      FriendshipInfoRepo.update_friendship_info(friendship_info, %{share_location: status})
+
     {:noreply,
-     stream(
+     stream_insert(
        socket,
        :friends_with_info,
-       Relationships.list_friends_with_info(current_user) |> IO.inspect()
+       %{
+         id: "user-#{other_user_id}",
+         user: Accounts.get_user!(other_user_id),
+         friendship_info: friendship_info
+       },
+       at: -1
      )}
   end
 
   @impl true
-  def handle_event("unfriend", %{"id" => recipient_user_id}, socket) do
-    recipient_user = %User{id: recipient_user_id}
+  def handle_event("unfriend", %{"id" => other_user_id}, socket) do
+    Relationships.Services.DeleteNonBlockedRelationshipsBetweenTwoUsers.call(
+      socket.assigns.current_user.id,
+      other_user_id
+    )
 
-    relationship = Relationships.get_relationship!(socket.assigns.current_user, recipient_user_id)
-
-    :ok = Relationships.delete_relationship(relationship)
-
-    {:noreply, stream_delete(socket, :other_users, recipient_user)}
+    {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 
   @impl true
-  def handle_event("block", %{"id" => recipient_user_id}, socket) do
-    recipient_user = %User{id: recipient_user_id}
+  def handle_event("block", %{"id" => other_user_id}, socket) do
+    other_user = %User{id: other_user_id}
 
-    {:ok, _} = Relationships.block_user(socket.assigns.current_user, recipient_user)
+    {:ok, _} = Relationships.Services.BlockUser.call(socket.assigns.current_user, other_user)
 
-    {:noreply, stream_delete(socket, :other_users, recipient_user)}
+    {:noreply, stream_delete(socket, :other_users, %User{id: other_user_id})}
   end
 end
