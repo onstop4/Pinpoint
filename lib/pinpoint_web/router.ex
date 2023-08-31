@@ -74,6 +74,8 @@ defmodule PinpointWeb.Router do
       live "/relationships/new", RelationshipLive.SentFriendRequests, :new
       live "/relationships/received", RelationshipLive.ReceivedFriendRequests, :index
       live "/relationships/blocked", RelationshipLive.Blocked, :index
+
+      live "/map", MapLive, :index
     end
   end
 

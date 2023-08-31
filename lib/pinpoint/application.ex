@@ -5,6 +5,8 @@ defmodule Pinpoint.Application do
 
   use Application
 
+  import Cachex.Spec, only: [expiration: 1]
+
   @impl true
   def start(_type, _args) do
     children = [
@@ -17,9 +19,11 @@ defmodule Pinpoint.Application do
       # Start Finch
       {Finch, name: Pinpoint.Finch},
       # Start the Endpoint (http/https)
-      PinpointWeb.Endpoint
+      PinpointWeb.Endpoint,
       # Start a worker by calling: Pinpoint.Worker.start_link(arg)
       # {Pinpoint.Worker, arg}
+      {Cachex, name: Pinpoint.CurrentLocationCache, expiration: expiration(interval: nil)},
+      {ProcessWatcher, name: PinpointWeb.LocationBroadcastingWatcher}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
