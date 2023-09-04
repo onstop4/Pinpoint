@@ -7,7 +7,8 @@ defmodule PinpointWeb.MapLive do
   @safe_user_columns [:id, :name]
 
   defp modify_socket_because_sharing_started(socket, user_id, location) do
-    if user_id != socket.assigns.current_user.id and
+    if socket.assigns.include_friends_locations and
+         user_id != socket.assigns.current_user.id and
          !Enum.find(socket.assigns.friends, fn user -> user.id == user_id end) do
       user = user_id |> Accounts.get_user!() |> Map.take(@safe_user_columns)
 
@@ -32,15 +33,20 @@ defmodule PinpointWeb.MapLive do
   end
 
   defp modify_socket_because_sharing_stopped(socket, user_id) do
-    if user_id == socket.assigns.current_user.id do
-      {:noreply, push_event(socket, "user_stopped_sharing", %{type: :current_user})}
-    else
-      {:noreply,
-       socket
-       |> update(:friends, fn friends ->
-         Enum.reject(friends, fn user -> user.id == user_id end)
-       end)
-       |> push_event("user_stopped_sharing", %{type: :friend, user_id: user_id})}
+    cond do
+      user_id == socket.assigns.current_user.id ->
+        {:noreply, push_event(socket, "user_stopped_sharing", %{type: :current_user})}
+
+      socket.assigns.include_friends_locations ->
+        {:noreply,
+         socket
+         |> update(:friends, fn friends ->
+           Enum.reject(friends, fn user -> user.id == user_id end)
+         end)
+         |> push_event("user_stopped_sharing", %{type: :friend, user_id: user_id})}
+
+      true ->
+        {:noreply, socket}
     end
   end
 
@@ -208,7 +214,7 @@ defmodule PinpointWeb.MapLive do
     Subscribing.subscribe(user_id)
 
     case Locations.get_value_from_cache(user_id) do
-      {_, location = {_x, _y}} ->
+      {_, location} ->
         modify_socket_because_sharing_started(socket, user_id, location)
 
       _ ->
