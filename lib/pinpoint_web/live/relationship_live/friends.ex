@@ -7,6 +7,8 @@ defmodule PinpointWeb.RelationshipLive.Friends do
   alias Pinpoint.Relationships
   alias Pinpoint.Relationships.{FriendshipInfoRepo, Relationship}
 
+  defp get_dom_id(user_id), do: "user-#{user_id}"
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -69,10 +71,10 @@ defmodule PinpointWeb.RelationshipLive.Friends do
 
     socket =
       socket
-      |> stream_configure(:friends_with_info, dom_id: &"user-#{&1.user.id}")
+      |> stream_configure(:friends_with_info, dom_id: &get_dom_id(&1.user.id))
       |> stream(
         :friends_with_info,
-        Relationships.Finders.ListFriendsWithInfo.find(current_user.id) |> IO.inspect()
+        Relationships.Finders.ListFriendsWithInfo.find(current_user.id)
       )
 
     {:ok, socket}
@@ -94,7 +96,8 @@ defmodule PinpointWeb.RelationshipLive.Friends do
         "set_location_sharing_status",
         %{"id" => other_user_id, "status" => status},
         socket
-      ) do
+      )
+      when is_boolean(status) do
     current_user = socket.assigns.current_user
 
     %Relationship{status: :friend, id: relationship_id} =
@@ -127,7 +130,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
       other_user_id
     )
 
-    {:noreply, stream_delete(socket, :friends_with_info, %User{id: other_user_id})}
+    {:noreply, stream_delete_by_dom_id(socket, :friends_with_info, get_dom_id(other_user_id))}
   end
 
   @impl true
@@ -136,6 +139,6 @@ defmodule PinpointWeb.RelationshipLive.Friends do
 
     {:ok, _} = Relationships.Services.BlockUser.call(socket.assigns.current_user, other_user)
 
-    {:noreply, stream_delete(socket, :friends_with_info, %User{id: other_user_id})}
+    {:noreply, stream_delete_by_dom_id(socket, :friends_with_info, get_dom_id(other_user_id))}
   end
 end
