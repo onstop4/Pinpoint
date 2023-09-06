@@ -53,18 +53,24 @@ defmodule PinpointWeb.MapLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="map-container" phx-hook="MapHook">
-      <%= if @sharing_location do %>
-        <button phx-click="stop_sharing_location">Stop sharing location</button>
-      <% else %>
-        <button phx-click="start_sharing_location">Start sharing location</button>
-      <% end %>
+    <div
+      id="map-container"
+      phx-hook="MapHook"
+      class="flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-center flex-col"
+    >
+      <div>
+        <%= if @sharing_location do %>
+          <.button phx-click="stop_sharing_location">Stop sharing location</.button>
+        <% else %>
+          <.button phx-click="start_sharing_location">Start sharing location</.button>
+        <% end %>
 
-      <%= if @include_friends_locations do %>
-        <button phx-click="exclude_friends_locations">Exclude locations of friends</button>
-      <% else %>
-        <button phx-click="include_friends_locations">Include locations of friends</button>
-      <% end %>
+        <%= if @include_friends_locations do %>
+          <.button phx-click="exclude_friends_locations">Exclude locations of friends</.button>
+        <% else %>
+          <.button phx-click="include_friends_locations">Include locations of friends</.button>
+        <% end %>
+      </div>
 
       <div id="actual-map" phx-update="ignore"></div>
 
@@ -99,6 +105,8 @@ defmodule PinpointWeb.MapLive do
 
     {:ok,
      assign(socket,
+       page_title: "Map",
+       dont_show_map_button: true,
        sharing_location: false,
        include_friends_locations: false,
        friends: []

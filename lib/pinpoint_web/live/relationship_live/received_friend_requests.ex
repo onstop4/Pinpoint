@@ -10,7 +10,8 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
   def render(assigns) do
     ~H"""
     <.header>
-      Listing Friend Requests You Received
+      <OtherComponents.relationships_links current_view={:received} />
+
       <:actions>
         <.link patch={~p"/relationships/new"}>
           <.button>Send Friend Request</.button>
@@ -47,13 +48,13 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
       :if={@live_action == :new}
       id="relationship-modal"
       show
-      on_cancel={JS.patch(~p"/relationships/pending")}
+      on_cancel={JS.patch(~p"/relationships/sent")}
     >
       <.live_component
         module={PinpointWeb.RelationshipLive.FormComponent}
         id={:new}
         title={@page_title}
-        patch={~p"/relationships/pending"}
+        patch={~p"/relationships/sent"}
         current_user={@current_user}
       />
     </.modal>

@@ -70,7 +70,7 @@ defmodule PinpointWeb.Router do
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
 
       live "/relationships/friends", RelationshipLive.Friends, :index
-      live "/relationships/pending", RelationshipLive.SentFriendRequests, :index
+      live "/relationships/sent", RelationshipLive.SentFriendRequests, :index
       live "/relationships/new", RelationshipLive.SentFriendRequests, :new
       live "/relationships/received", RelationshipLive.ReceivedFriendRequests, :index
       live "/relationships/blocked", RelationshipLive.Blocked, :index

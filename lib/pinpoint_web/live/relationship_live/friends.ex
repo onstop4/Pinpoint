@@ -6,6 +6,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
 
   alias Pinpoint.Relationships
   alias Pinpoint.Relationships.{FriendshipInfoRepo, Relationship}
+  alias PinpointWeb.RelationshipLive.OtherComponents
 
   defp get_dom_id(user_id), do: "user-#{user_id}"
 
@@ -13,7 +14,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
   def render(assigns) do
     ~H"""
     <.header>
-      Listing Friends
+      <OtherComponents.relationships_links current_view={:friends} />
       <:actions>
         <.link patch={~p"/relationships/new"}>
           <.button>Send Friend Request</.button>

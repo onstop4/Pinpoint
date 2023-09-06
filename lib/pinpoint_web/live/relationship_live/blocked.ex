@@ -9,7 +9,7 @@ defmodule PinpointWeb.RelationshipLive.Blocked do
   def render(assigns) do
     ~H"""
     <.header>
-      Listing Blocked Users
+      <OtherComponents.relationships_links current_view={:blocked} />
     </.header>
 
     <OtherComponents.user_table users={@streams.other_users}>
