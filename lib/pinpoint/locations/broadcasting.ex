@@ -6,7 +6,11 @@ defmodule Pinpoint.Locations.Broadcasting do
     self_pid = self()
 
     Cachex.transaction(Pinpoint.CurrentLocationCache, [current_user_id], fn worker ->
-      case Locations.get_value_from_cache(worker, current_user_id) do
+      old_value_in_cache = Locations.get_value_from_cache(worker, current_user_id)
+
+      Cachex.put(worker, current_user_id, {self_pid, location})
+
+      case old_value_in_cache do
         {pid, _} when pid != self_pid ->
           send(pid, :sharing_from_alternate_location)
 
@@ -17,8 +21,6 @@ defmodule Pinpoint.Locations.Broadcasting do
             {:started_sharing, current_user_id, location}
           )
       end
-
-      Cachex.put(worker, current_user_id, {self_pid, location})
 
       ProcessWatcher.monitor(
         PinpointWeb.LocationBroadcastingWatcher,

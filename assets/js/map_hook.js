@@ -5,6 +5,10 @@ const markerIcon = new L.Icon.Default({
     shadowUrl: '../../images/leaflet/marker-shadow.png'
 })
 
+function notNullOrUndefined(value) {
+    return value !== null && value !== undefined
+}
+
 export const MapHook = {
     mounted() {
         this.state = {}
@@ -17,14 +21,16 @@ export const MapHook = {
         this.resetLocationWatcher()
         this.state.currentUserMarker = null
         this.state.friends = {}
+        this.state.friendsMarkers = {}
         this.state.friendsLayerGroup = L.layerGroup([]).addTo(this.state.map)
+        this.state.tracking = null
 
         this.handleEvent('youve_started_sharing', () => {
             this.resetLocationWatcher()
             this.state.locationWatcher = navigator.geolocation.watchPosition(
                 pos => {
                     let location = [pos.coords.latitude, pos.coords.longitude]
-                    if (location[0] !== this.state.lastLocationOfCurrentUser[0] || location[1] !== this.state.lastLocationOfCurrentUser[1]) {
+                    if (location[0] !== this.state.lastLocationOfCurrentUser[0] && location[1] !== this.state.lastLocationOfCurrentUser[1]) {
                         this.pushEvent('new_location', location)
                         this.state.lastLocationOfCurrentUser = location
                     }
@@ -43,14 +49,15 @@ export const MapHook = {
 
             for (let friend_and_location of payload.friends_and_locations) {
                 this.state.friends[friend_and_location.user.id] = friend_and_location.user
-                this.addOrMoveFriendMarker(friend_and_location.user.id, friend_and_location.location)
+                if (notNullOrUndefined(friend_and_location.location))
+                    this.addOrMoveFriendMarker(friend_and_location.user.id, friend_and_location.location)
             }
         })
 
         this.handleEvent('user_started_sharing', payload => {
             if (payload.type == 'friend') {
                 this.state.friends[payload.user.id] = payload.user
-                if (payload.location !== null) {
+                if (notNullOrUndefined(payload.location)) {
                     this.addOrMoveFriendMarker(payload.user.id, payload.location)
                 }
             }
@@ -73,9 +80,28 @@ export const MapHook = {
                 this.addOrMoveFriendMarker(payload.user_id, payload.location)
             }
         })
+
+        this.handleEvent('track_user', payload => {
+            if (payload.type == 'current_user') {
+                this.state.tracking = 'current_user'
+
+                if (notNullOrUndefined(this.state.currentUserMarker)) {
+                    this.goToLocation(this.state.currentUserMarker.getLatLng())
+                }
+            } else if (payload.type == 'friend') {
+                this.state.tracking = payload.user_id
+
+                if (notNullOrUndefined(this.state.friendsMarkers[payload.user_id])) {
+                    this.goToLocation(this.state.friendsMarkers[payload.user_id].getLatLng())
+                }
+            }
+        })
+
+        this.handleEvent('stop_tracking', () => this.state.tracking = null)
     },
 
     disconnected() {
+        this.state.tracking = null
         this.resetLocationWatcher()
         this.removeCurrentUserMarker()
         this.state.friendsLayerGroup.clearLayers()
@@ -89,7 +115,7 @@ export const MapHook = {
     },
 
     resetLocationWatcher() {
-        if (this.state.locationWatcher != null || this.state.locationWatcher != undefined) {
+        if (notNullOrUndefined(this.state.locationWatcher)) {
             navigator.geolocation.clearWatch(this.state.locationWatcher)
         }
 
@@ -97,13 +123,17 @@ export const MapHook = {
     },
 
     addOrMoveCurrentUserMarker(location) {
-        if (this.state.currentUserMarker) {
-            setLatLng(location)
+        if (notNullOrUndefined(this.state.currentUserMarker)) {
+            this.state.currentUserMarker.setLatLng(location)
         } else {
             let marker = L.marker(location, { icon: markerIcon })
             marker.bindPopup('You')
             marker.addTo(this.state.map)
             this.state.currentUserMarker = marker
+        }
+
+        if (this.state.tracking == 'current_user') {
+            this.goToLocation(location)
         }
     },
 
@@ -112,32 +142,41 @@ export const MapHook = {
             this.state.map.removeLayer(this.state.currentUserMarker)
             this.state.currentUserMarker = null
         }
+
+        if (this.state.tracking == 'current_user') {
+            this.state.tracking = null
+        }
     },
 
     addOrMoveFriendMarker(user_id, location) {
-        let layers = this.state.friendsLayerGroup.getLayers()
-        for (let layer of layers) {
-            if (layer.user_id === user_id) {
-                layer.setLatLng(location)
-                return
-            }
+        if (notNullOrUndefined(this.state.friendsMarkers[user_id])) {
+            this.state.friendsMarkers[user_id].setLatLng(location)
+        } else {
+            let user = this.state.friends[user_id]
+            let marker = L.marker(location, { icon: markerIcon })
+            this.state.friendsLayerGroup.addLayer(marker)
+            marker._icon.classList.add('friend-marker')
+            marker.user_id = user_id
+            marker.bindPopup(user.name)
+            this.state.friendsMarkers[user_id] = marker
         }
 
-        let user = this.state.friends[user_id]
-        let marker = L.marker(location, { icon: markerIcon })
-        this.state.friendsLayerGroup.addLayer(marker)
-        marker._icon.classList.add('friend-marker')
-        marker.user_id = user_id
-        marker.bindPopup(user.name)
+        if (this.state.tracking == user_id) {
+            this.goToLocation(location)
+        }
     },
 
     removeFriendMarker(user_id) {
-        let layers = this.state.friendsLayerGroup.getLayers()
-        for (let layer of layers) {
-            if (layer.user_id === user_id) {
-                this.state.friendsLayerGroup.removeLayer(layer)
-                break
-            }
+        if (notNullOrUndefined(this.state.friendsMarkers[user_id])) {
+            this.state.friendsLayerGroup.removeLayer(this.state.friendsMarkers[user_id])
         }
+
+        if (this.state.tracking == user_id) {
+            this.state.tracking = null
+        }
+    },
+
+    goToLocation(location) {
+        this.state.map.setView(location, this.state.map.getZoom())
     }
 }

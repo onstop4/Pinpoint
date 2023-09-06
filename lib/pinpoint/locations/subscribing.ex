@@ -19,7 +19,6 @@ defmodule Pinpoint.Locations.Subscribing do
         :ok = subscribe(user.id),
         result = Locations.get_value_from_cache(user.id),
         {_, location} = result,
-        not is_nil(location),
         do: transform.(user, location)
   end
 
