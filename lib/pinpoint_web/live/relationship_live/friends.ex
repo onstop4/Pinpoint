@@ -98,7 +98,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
         %{"id" => other_user_id, "status" => status},
         socket
       )
-      when is_boolean(status) do
+      when is_integer(other_user_id) and is_boolean(status) do
     current_user = socket.assigns.current_user
 
     %Relationship{status: :friend, id: relationship_id} =
@@ -125,7 +125,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
   end
 
   @impl true
-  def handle_event("unfriend", %{"id" => other_user_id}, socket) do
+  def handle_event("unfriend", %{"id" => other_user_id}, socket) when is_integer(other_user_id) do
     Relationships.Services.DeleteNonBlockedRelationshipsBetweenTwoUsers.call(
       socket.assigns.current_user.id,
       other_user_id
@@ -135,7 +135,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
   end
 
   @impl true
-  def handle_event("block", %{"id" => other_user_id}, socket) do
+  def handle_event("block", %{"id" => other_user_id}, socket) when is_integer(other_user_id) do
     other_user = %User{id: other_user_id}
 
     {:ok, _} = Relationships.Services.BlockUser.call(socket.assigns.current_user, other_user)

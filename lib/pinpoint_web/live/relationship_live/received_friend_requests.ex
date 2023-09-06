@@ -95,7 +95,7 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
   end
 
   @impl true
-  def handle_event("accept", %{"id" => other_user_id}, socket) do
+  def handle_event("accept", %{"id" => other_user_id}, socket) when is_integer(other_user_id) do
     relationship =
       Relationships.RelationshipRepo.get_relationship!(
         other_user_id,
@@ -108,7 +108,7 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
   end
 
   @impl true
-  def handle_event("decline", %{"id" => other_user_id}, socket) do
+  def handle_event("decline", %{"id" => other_user_id}, socket) when is_integer(other_user_id) do
     %Relationship{status: :pending_friend} =
       relationship =
       Relationships.RelationshipRepo.get_relationship!(
@@ -122,7 +122,7 @@ defmodule PinpointWeb.RelationshipLive.ReceivedFriendRequests do
   end
 
   @impl true
-  def handle_event("block", %{"id" => other_user_id}, socket) do
+  def handle_event("block", %{"id" => other_user_id}, socket) when is_integer(other_user_id) do
     {:ok, _} =
       Relationships.Services.BlockUser.call(socket.assigns.current_user.id, other_user_id)
 

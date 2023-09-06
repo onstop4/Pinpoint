@@ -51,7 +51,7 @@ defmodule PinpointWeb.RelationshipLive.Blocked do
   end
 
   @impl true
-  def handle_event("unblock", %{"id" => other_user_id}, socket) do
+  def handle_event("unblock", %{"id" => other_user_id}, socket) when is_integer(other_user_id) do
     relationship =
       Relationships.RelationshipRepo.get_relationship!(
         socket.assigns.current_user.id,
