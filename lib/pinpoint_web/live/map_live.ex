@@ -26,7 +26,7 @@ defmodule PinpointWeb.MapLive do
          |> update(
            :friends,
            fn friends ->
-             Enum.sort_by([user | friends], fn user -> user.name end)
+             Enum.sort_by([user | friends], &String.downcase(&1.name))
            end
          )
          |> push_event("user_started_sharing", %{type: :friend, user: user, location: location})}
@@ -198,7 +198,7 @@ defmodule PinpointWeb.MapLive do
                         </li>
                       </ul>
                     <% else %>
-                      <p class="italic">None of your friends are online</p>
+                      <p class="italic">None of your friends are sharing at the moment.</p>
                     <% end %>
                   </div>
                 <% else %>
@@ -227,6 +227,16 @@ defmodule PinpointWeb.MapLive do
     current_user_id = socket.assigns.current_user.id
 
     socket =
+      assign(socket,
+        page_title: "Map",
+        sharing_location: false,
+        include_friends_locations: false,
+        friends: [],
+        tracking: nil,
+        current_user_is_sharing: false
+      )
+
+    socket =
       if connected?(socket) do
         Subscribing.subscribe(current_user_id)
 
@@ -240,20 +250,13 @@ defmodule PinpointWeb.MapLive do
             })
 
           _ ->
-            assign(socket, :current_user_is_sharing, false)
+            socket
         end
       else
-        assign(socket, :current_user_is_sharing, false)
+        socket
       end
 
-    {:ok,
-     assign(socket,
-       page_title: "Map",
-       sharing_location: false,
-       include_friends_locations: false,
-       friends: [],
-       tracking: nil
-     ), layout: false}
+    {:ok, socket, layout: false}
   end
 
   @impl true
