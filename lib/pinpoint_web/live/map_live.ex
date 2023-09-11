@@ -332,7 +332,7 @@ defmodule PinpointWeb.MapLive do
     {:noreply,
      socket
      |> assign(tracking: :current_user)
-     |> push_event("track_user", %{type: :current_user})}
+     |> push_event("go_to_user", %{type: :current_user})}
   end
 
   @impl true
@@ -340,7 +340,7 @@ defmodule PinpointWeb.MapLive do
     {:noreply,
      socket
      |> assign(tracking: user_id)
-     |> push_event("track_user", %{type: :friend, user_id: user_id})}
+     |> push_event("go_to_user", %{type: :friend, user_id: user_id})}
   end
 
   @impl true
@@ -364,13 +364,18 @@ defmodule PinpointWeb.MapLive do
 
     if user_id == socket.assigns.current_user.id do
       {:noreply,
-       push_event(socket, "user_new_location", %{type: :current_user, location: location})}
+       push_event(socket, "user_new_location", %{
+         type: :current_user,
+         location: location,
+         go_to: socket.assigns.tracking == :current_user
+       })}
     else
       {:noreply,
        push_event(socket, "user_new_location", %{
          type: :friend,
          user_id: user_id,
-         location: location
+         location: location,
+         go_to: socket.assigns.tracking == user_id
        })}
     end
   end
