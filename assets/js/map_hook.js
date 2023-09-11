@@ -12,11 +12,14 @@ function notNullOrUndefined(value) {
 export const MapHook = {
     mounted() {
         this.state = {}
-        this.state.map = L.map('actual-map').setView([50, 0], 1)
+        this.state.map = L.map('map', { zoomControl: false }).setView([50, 0], 1)
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
         }).addTo(this.state.map)
+        L.control.zoom({
+            position: 'topright'
+        }).addTo(this.state.map);
 
         this.resetLocationWatcher()
         this.state.currentUserMarker = null

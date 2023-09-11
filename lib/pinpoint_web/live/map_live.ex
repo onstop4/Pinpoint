@@ -57,43 +57,167 @@ defmodule PinpointWeb.MapLive do
     end
   end
 
+  defp toggle_friends_list(js \\ %JS{}) do
+    js
+    |> JS.toggle(to: "#friends-list")
+    # The two steps below were adapted from
+    # https://github.com/phoenixframework/phoenix_live_view/pull/1721#issuecomment-1083130244.
+    |> JS.remove_class("rotate-90", to: "#toggle-friends-list-caret")
+    |> JS.add_class("rotate-90", to: "#toggle-friends-list-caret:not(.rotate-90)")
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
-    <div
-      id="map-container"
-      phx-hook="MapHook"
-      class="flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-center flex-col"
-    >
-      <div>
-        <%= if @sharing_location do %>
-          <.button phx-click="stop_sharing_location">Stop sharing location</.button>
-        <% else %>
-          <.button phx-click="start_sharing_location">Start sharing location</.button>
-        <% end %>
-
-        <%= if @include_friends_locations do %>
-          <.button phx-click="exclude_friends_locations">Exclude locations of friends</.button>
-        <% else %>
-          <.button phx-click="include_friends_locations">Include locations of friends</.button>
-        <% end %>
-
-        <.button :if={@tracking} phx-click="stop_tracking">Stop tracking</.button>
+    <div class="h-full relative">
+      <div class="h-full w-auto" phx-update="ignore" id="map-container">
+        <div id="map" class="h-full w-auto z-0" phx-hook="MapHook" />
       </div>
 
-      <div id="actual-map" phx-update="ignore"></div>
+      <button
+        phx-click={JS.show(to: "#map-overlay")}
+        type="button"
+        class="absolute top-2 left-2 items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="40"
+          height="40"
+          fill="currentColor"
+          class="bi bi-list"
+          viewBox="0 0 16 16"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"
+          />
+        </svg>
+      </button>
 
-      <%= if @current_user_is_sharing do %>
-        <.button phx-click={JS.push("track_current_user")}>Track current location</.button>
-      <% end %>
+      <div
+        id="map-overlay"
+        aria-labelledby="slide-over-title"
+        role="dialog"
+        aria-modal="true"
+        style="display: none"
+      >
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
 
-      <%= if @friends != [] do %>
-        <div>View a friend's location:</div>
+        <div class="absolute inset-0 overflow-hidden">
+          <div class="pointer-events-none fixed inset-y-0 left-0 flex max-w-full">
+            <div class="pointer-events-auto relative w-screen md:max-w-md">
+              <div class="flex h-full flex-col overflow-y-scroll bg-white py-6 shadow-xl">
+                <div>
+                  <button phx-click={JS.hide(to: "#map-overlay")} class="float-right mt-8 pr-4">
+                    <svg
+                      class="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="1.5"
+                      stroke="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
-        <ul :for={friend <- @friends} class="list-disc list-inside">
-          <li phx-click={JS.push("track_user", value: %{user_id: friend.id})}><%= friend.name %></li>
-        </ul>
-      <% end %>
+                <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                  <div>
+                    <%= if @sharing_location do %>
+                      <button phx-click="stop_sharing_location" class="font-semibold text-gray-900">
+                        Stop sharing <span class="absolute inset-0"></span>
+                      </button>
+                    <% else %>
+                      <button phx-click="start_sharing_location" class="font-semibold text-gray-900">
+                        Start sharing <span class="absolute inset-0"></span>
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%= if not is_nil(@tracking) do %>
+                  <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div>
+                      <button phx-click="stop_tracking" class="font-semibold text-gray-900">
+                        Stop tracking <span class="absolute inset-0"></span>
+                      </button>
+                    </div>
+                  </div>
+                <% else %>
+                  <%= if @current_user_is_sharing do %>
+                    <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                      <div>
+                        <button phx-click="track_current_user" class="font-semibold text-gray-900">
+                          Track your location <span class="absolute inset-0"></span>
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+                <% end %>
+
+                <%= if @include_friends_locations do %>
+                  <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div>
+                      <button
+                        phx-click="exclude_friends_locations"
+                        class="font-semibold text-gray-900"
+                      >
+                        Exclude friends <span class="absolute inset-0"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div>
+                      <button phx-click={toggle_friends_list()} class="font-semibold text-gray-900">
+                        Toggle friends list
+                        <span class="inset-0 inline-block">
+                          <svg
+                            id="toggle-friends-list-caret"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            fill="currentColor"
+                            class="bi bi-caret-right-fill"
+                            viewBox="0 0 16 16"
+                          >
+                            <path d="m12.14 8.753-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  <div id="friends-list" class="px-6" style="display: none">
+                    <%= if @friends != [] do %>
+                      <ul :for={friend <- @friends}>
+                        <li class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                          <button phx-click={JS.push("track_user", value: %{user_id: friend.id})}>
+                            <%= friend.name %>
+                          </button>
+                        </li>
+                      </ul>
+                    <% else %>
+                      <p class="italic">None of your friends are online</p>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div>
+                      <button
+                        phx-click="include_friends_locations"
+                        class="font-semibold text-gray-900"
+                      >
+                        Include friends <span class="absolute inset-0"></span>
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end
@@ -125,12 +249,11 @@ defmodule PinpointWeb.MapLive do
     {:ok,
      assign(socket,
        page_title: "Map",
-       dont_show_map_button: true,
        sharing_location: false,
        include_friends_locations: false,
        friends: [],
        tracking: nil
-     )}
+     ), layout: false}
   end
 
   @impl true

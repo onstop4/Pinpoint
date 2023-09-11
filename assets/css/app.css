@@ -5,10 +5,6 @@
 @import "../vendor/leaflet/leaflet.css";
 
 /* This file is for your main application CSS */
-#actual-map {
-    width: 500px;
-    height: 500px;
-}
 
 img.friend-marker {
     filter: hue-rotate(120deg);
