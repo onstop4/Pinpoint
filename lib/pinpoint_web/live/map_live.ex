@@ -137,6 +137,18 @@ defmodule PinpointWeb.MapLive do
                 </div>
 
                 <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                  <div class="mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="32"
+                      height="32"
+                      fill="currentColor"
+                      class="bi bi-broadcast"
+                      viewBox="0 0 16 16"
+                    >
+                      <path d="M3.05 3.05a7 7 0 0 0 0 9.9.5.5 0 0 1-.707.707 8 8 0 0 1 0-11.314.5.5 0 0 1 .707.707zm2.122 2.122a4 4 0 0 0 0 5.656.5.5 0 1 1-.708.708 5 5 0 0 1 0-7.072.5.5 0 0 1 .708.708zm5.656-.708a.5.5 0 0 1 .708 0 5 5 0 0 1 0 7.072.5.5 0 1 1-.708-.708 4 4 0 0 0 0-5.656.5.5 0 0 1 0-.708zm2.122-2.12a.5.5 0 0 1 .707 0 8 8 0 0 1 0 11.313.5.5 0 0 1-.707-.707 7 7 0 0 0 0-9.9.5.5 0 0 1 0-.707zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
+                    </svg>
+                  </div>
                   <div>
                     <%= if @sharing_location do %>
                       <button phx-click="stop_sharing_location" class="font-semibold text-gray-900">
@@ -152,6 +164,25 @@ defmodule PinpointWeb.MapLive do
 
                 <%= if not is_nil(@tracking) do %>
                   <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div class="mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        fill="currentColor"
+                        class="bi bi-pin-map"
+                        viewBox="0 0 16 16"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M3.1 11.2a.5.5 0 0 1 .4-.2H6a.5.5 0 0 1 0 1H3.75L1.5 15h13l-2.25-3H10a.5.5 0 0 1 0-1h2.5a.5.5 0 0 1 .4.2l3 4a.5.5 0 0 1-.4.8H.5a.5.5 0 0 1-.4-.8l3-4z"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          d="M8 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM4 4a4 4 0 1 1 4.5 3.969V13.5a.5.5 0 0 1-1 0V7.97A4 4 0 0 1 4 3.999z"
+                        />
+                      </svg>
+                    </div>
                     <div>
                       <button phx-click="stop_tracking" class="font-semibold text-gray-900">
                         Stop tracking <span class="absolute inset-0"></span>
@@ -160,6 +191,25 @@ defmodule PinpointWeb.MapLive do
                   </div>
 
                   <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div class="mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        fill="currentColor"
+                        class="bi bi-pin-map-fill"
+                        viewBox="0 0 16 16"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M3.1 11.2a.5.5 0 0 1 .4-.2H6a.5.5 0 0 1 0 1H3.75L1.5 15h13l-2.25-3H10a.5.5 0 0 1 0-1h2.5a.5.5 0 0 1 .4.2l3 4a.5.5 0 0 1-.4.8H.5a.5.5 0 0 1-.4-.8l3-4z"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          d="M4 4a4 4 0 1 1 4.5 3.969V13.5a.5.5 0 0 1-1 0V7.97A4 4 0 0 1 4 3.999z"
+                        />
+                      </svg>
+                    </div>
                     <div>
                       <button phx-click="go_to_tracked_user" class="font-semibold text-gray-900">
                         Center on tracked user <span class="absolute inset-0"></span>
@@ -169,6 +219,25 @@ defmodule PinpointWeb.MapLive do
                 <% else %>
                   <%= if @current_user_is_sharing do %>
                     <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                      <div class="mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="32"
+                          height="32"
+                          fill="currentColor"
+                          class="bi bi-pin-map"
+                          viewBox="0 0 16 16"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M3.1 11.2a.5.5 0 0 1 .4-.2H6a.5.5 0 0 1 0 1H3.75L1.5 15h13l-2.25-3H10a.5.5 0 0 1 0-1h2.5a.5.5 0 0 1 .4.2l3 4a.5.5 0 0 1-.4.8H.5a.5.5 0 0 1-.4-.8l3-4z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            d="M8 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM4 4a4 4 0 1 1 4.5 3.969V13.5a.5.5 0 0 1-1 0V7.97A4 4 0 0 1 4 3.999z"
+                          />
+                        </svg>
+                      </div>
                       <div>
                         <button phx-click="track_current_user" class="font-semibold text-gray-900">
                           Track your location <span class="absolute inset-0"></span>
@@ -180,6 +249,18 @@ defmodule PinpointWeb.MapLive do
 
                 <%= if @include_friends_locations do %>
                   <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div class="mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        fill="currentColor"
+                        class="bi bi-people-fill"
+                        viewBox="0 0 16 16"
+                      >
+                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                      </svg>
+                    </div>
                     <div>
                       <button
                         phx-click="exclude_friends_locations"
@@ -226,6 +307,18 @@ defmodule PinpointWeb.MapLive do
                   </div>
                 <% else %>
                   <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div class="mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        fill="currentColor"
+                        class="bi bi-people-fill"
+                        viewBox="0 0 16 16"
+                      >
+                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                      </svg>
+                    </div>
                     <div>
                       <button
                         phx-click="include_friends_locations"
