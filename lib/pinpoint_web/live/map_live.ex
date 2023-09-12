@@ -42,6 +42,13 @@ defmodule PinpointWeb.MapLive do
         {:noreply,
          socket
          |> assign(current_user_is_sharing: false)
+         |> update(
+           :tracking,
+           fn
+             :current_user -> nil
+             tracking_else -> tracking_else
+           end
+         )
          |> push_event("user_stopped_sharing", %{type: :current_user})}
 
       socket.assigns.include_friends_locations ->
@@ -50,6 +57,13 @@ defmodule PinpointWeb.MapLive do
          |> update(:friends, fn friends ->
            Enum.reject(friends, fn user -> user.id == user_id end)
          end)
+         |> update(
+           :tracking,
+           fn
+             ^user_id -> nil
+             tracking_else -> tracking_else
+           end
+         )
          |> push_event("user_stopped_sharing", %{type: :friend, user_id: user_id})}
 
       true ->
@@ -144,6 +158,14 @@ defmodule PinpointWeb.MapLive do
                       </button>
                     </div>
                   </div>
+
+                  <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                    <div>
+                      <button phx-click="go_to_tracked_user" class="font-semibold text-gray-900">
+                        Center on tracked user <span class="absolute inset-0"></span>
+                      </button>
+                    </div>
+                  </div>
                 <% else %>
                   <%= if @current_user_is_sharing do %>
                     <div class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
@@ -185,6 +207,7 @@ defmodule PinpointWeb.MapLive do
                             <path d="m12.14 8.753-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z" />
                           </svg>
                         </span>
+                        <span class="absolute inset-0"></span>
                       </button>
                     </div>
                   </div>
@@ -193,7 +216,7 @@ defmodule PinpointWeb.MapLive do
                       <ul :for={friend <- @friends}>
                         <li class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
                           <button phx-click={JS.push("track_user", value: %{user_id: friend.id})}>
-                            <%= friend.name %>
+                            <%= friend.name %> <span class="absolute inset-0"></span>
                           </button>
                         </li>
                       </ul>
@@ -349,6 +372,14 @@ defmodule PinpointWeb.MapLive do
   @impl true
   def handle_event("stop_tracking", _, socket) do
     {:noreply, socket |> assign(tracking: nil) |> push_event("stop_tracking", %{})}
+  end
+
+  @impl true
+  def handle_event("go_to_tracked_user", _, socket) do
+    case socket.assigns.tracking do
+      :current_user -> {:noreply, push_event(socket, "go_to_user", %{type: :current_user})}
+      user_id -> {:noreply, push_event(socket, "go_to_user", %{type: :friend, user_id: user_id})}
+    end
   end
 
   @impl true
