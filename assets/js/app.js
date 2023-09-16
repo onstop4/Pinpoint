@@ -16,8 +16,6 @@
 //
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
-import "../vendor/leaflet/leaflet.css"
-
 import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix"
