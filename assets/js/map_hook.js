@@ -156,6 +156,7 @@ export const MapHook = {
     removeFriendMarker(user_id) {
         if (notNullOrUndefined(this.state.friendsMarkers[user_id])) {
             this.state.friendsLayerGroup.removeLayer(this.state.friendsMarkers[user_id])
+            this.state.friendsMarkers[user_id] = null
         }
     },
 

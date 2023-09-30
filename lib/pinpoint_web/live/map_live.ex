@@ -1,84 +1,10 @@
 defmodule PinpointWeb.MapLive do
   alias Pinpoint.Locations
-  alias Pinpoint.Locations.{Broadcasting, Subscribing}
+  alias Pinpoint.Locations.{Broadcaster, Subscribing}
   alias Pinpoint.Accounts
   use PinpointWeb, :live_view
 
   @safe_user_columns [:id, :name]
-
-  defp modify_socket_because_sharing_started(socket, user_id, location) do
-    cond do
-      user_id == socket.assigns.current_user.id ->
-        {:noreply, assign(socket, current_user_is_sharing: true)}
-
-      socket.assigns.include_friends_locations and
-          !Enum.find(socket.assigns.friends, fn user -> user.id == user_id end) ->
-        user = user_id |> Accounts.get_user!() |> Map.take(@safe_user_columns)
-
-        location =
-          case location do
-            {x, y} -> [x, y]
-            _ -> nil
-          end
-
-        {:noreply,
-         socket
-         |> update(
-           :friends,
-           fn friends ->
-             Enum.sort_by([user | friends], &String.downcase(&1.name))
-           end
-         )
-         |> push_event("user_started_sharing", %{type: :friend, user: user, location: location})}
-
-      true ->
-        {:noreply, socket}
-    end
-  end
-
-  defp modify_socket_because_sharing_stopped(socket, user_id) do
-    cond do
-      user_id == socket.assigns.current_user.id ->
-        {:noreply,
-         socket
-         |> assign(current_user_is_sharing: false)
-         |> update(
-           :tracking,
-           fn
-             :current_user -> nil
-             tracking_else -> tracking_else
-           end
-         )
-         |> push_event("user_stopped_sharing", %{type: :current_user})}
-
-      socket.assigns.include_friends_locations ->
-        {:noreply,
-         socket
-         |> update(:friends, fn friends ->
-           Enum.reject(friends, fn user -> user.id == user_id end)
-         end)
-         |> update(
-           :tracking,
-           fn
-             ^user_id -> nil
-             tracking_else -> tracking_else
-           end
-         )
-         |> push_event("user_stopped_sharing", %{type: :friend, user_id: user_id})}
-
-      true ->
-        {:noreply, socket}
-    end
-  end
-
-  defp toggle_friends_list(js \\ %JS{}) do
-    js
-    |> JS.toggle(to: "#friends-list")
-    # The two steps below were adapted from
-    # https://github.com/phoenixframework/phoenix_live_view/pull/1721#issuecomment-1083130244.
-    |> JS.remove_class("rotate-90", to: "#toggle-friends-list-caret")
-    |> JS.add_class("rotate-90", to: "#toggle-friends-list-caret:not(.rotate-90)")
-  end
 
   @impl true
   def render(assigns) do
@@ -150,12 +76,12 @@ defmodule PinpointWeb.MapLive do
                     </svg>
                   </div>
                   <div>
-                    <%= if @sharing_location do %>
-                      <button phx-click="stop_sharing_location" class="font-semibold text-gray-900">
+                    <%= if @sharing_process do %>
+                      <button phx-click="stop_sharing_process" class="font-semibold text-gray-900">
                         Stop sharing <span class="absolute inset-0"></span>
                       </button>
                     <% else %>
-                      <button phx-click="start_sharing_location" class="font-semibold text-gray-900">
+                      <button phx-click="start_sharing_process" class="font-semibold text-gray-900">
                         Start sharing <span class="absolute inset-0"></span>
                       </button>
                     <% end %>
@@ -293,8 +219,8 @@ defmodule PinpointWeb.MapLive do
                     </div>
                   </div>
                   <div id="friends-list" class="px-6" style="display: none">
-                    <%= if @friends != [] do %>
-                      <ul :for={friend <- @friends}>
+                    <%= if @online_friends != [] do %>
+                      <ul :for={friend <- @online_friends}>
                         <li class="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
                           <button phx-click={JS.push("track_user", value: %{user_id: friend.id})}>
                             <%= friend.name %> <span class="absolute inset-0"></span>
@@ -340,33 +266,31 @@ defmodule PinpointWeb.MapLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    Process.flag(:trap_exit, true)
+
     current_user_id = socket.assigns.current_user.id
 
     socket =
       assign(socket,
         page_title: "Map",
-        sharing_location: false,
+        sharing_process: nil,
+        current_user_is_sharing: false,
         include_friends_locations: false,
-        friends: [],
-        tracking: nil,
-        current_user_is_sharing: false
+        friends_ids: %{},
+        online_friends: [],
+        tracking: nil
       )
 
     socket =
       if connected?(socket) do
         Subscribing.subscribe(current_user_id)
 
-        case Locations.get_value_from_cache(current_user_id) do
-          {_, {x, y}} ->
+        case Locations.get_info(current_user_id) do
+          nil ->
             socket
-            |> assign(:current_user_is_sharing, true)
-            |> push_event("user_new_location", %{
-              type: :current_user,
-              location: [x, y]
-            })
 
-          _ ->
-            socket
+          {_pid, location} ->
+            modify_socket_because_new_location(socket, current_user_id, location)
         end
       else
         socket
@@ -376,73 +300,88 @@ defmodule PinpointWeb.MapLive do
   end
 
   @impl true
-  def handle_event("start_sharing_location", _, socket) do
-    if not socket.assigns.sharing_location do
-      Broadcasting.start_sharing_location(socket.assigns.current_user.id)
+  def handle_event("start_sharing_process", _, socket) do
+    case socket.assigns.sharing_process do
+      nil ->
+        case Broadcaster.start_link(socket.assigns.current_user.id) do
+          {:ok, pid} ->
+            {:noreply,
+             socket
+             |> assign(sharing_process: pid)
+             |> push_event("youve_started_sharing", %{})}
 
-      {:noreply,
-       socket
-       |> assign(sharing_location: true)
-       |> push_event("youve_started_sharing", %{})}
-    else
-      {:noreply, socket}
+          {:error, :existing_broadcaster} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               "Couldn't start sharing from this device because you started sharing from another device."
+             )}
+        end
+
+      _ ->
+        {:noreply, socket}
     end
   end
 
   @impl true
-  def handle_event("stop_sharing_location", _, socket) do
-    Broadcasting.stop_sharing_location(socket.assigns.current_user.id)
-
-    {:noreply,
-     socket
-     |> assign(sharing_location: false)
-     |> push_event("youve_stopped_sharing", %{})}
+  def handle_event("stop_sharing_process", _, socket) do
+    {:noreply, modify_socket_and_stop_sharing(socket)}
   end
 
   @impl true
-  def handle_event("new_location", [x, y], socket)
+  def handle_event("new_location", location = [x, y], socket)
       when is_number(x) and is_number(y) do
-    if socket.assigns.sharing_location do
-      Broadcasting.share_new_location(
-        socket.assigns.current_user.id,
-        {x, y}
-      )
-    end
-
+    Broadcaster.update_location(socket.assigns.sharing_process, location)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("include_friends_locations", _, socket) do
-    friends_and_locations =
-      Subscribing.subscribe_to_friends(
+    friends =
+      Pinpoint.Relationships.Finders.ListFriendsSharingLocations.find(
         socket.assigns.current_user.id,
-        @safe_user_columns,
-        fn
-          user, {x, y} -> %{user: user, location: [x, y]}
-          user, nil -> %{user: user}
-        end
+        @safe_user_columns
       )
 
-    friends =
-      Enum.map(friends_and_locations, fn friend_and_location -> friend_and_location.user end)
+    {friends_ids, online_friends_and_locations} =
+      friends
+      |> Stream.map(fn user ->
+        :ok = Subscribing.subscribe(user.id)
+
+        case Locations.get_info(user.id) do
+          nil -> {{user.id, false}, nil}
+          {_pid, location} -> {{user.id, true}, %{user: user, location: location}}
+        end
+      end)
+      |> Enum.unzip()
+
+    online_friends_and_locations = Enum.reject(online_friends_and_locations, &is_nil/1)
+    online_friends = Enum.map(online_friends_and_locations, fn %{user: user} -> user end)
 
     {:noreply,
      socket
      |> assign(
        include_friends_locations: true,
-       friends: friends
+       friends_ids: Map.new(friends_ids),
+       online_friends: online_friends
      )
-     |> push_event("update_friends_list", %{friends_and_locations: friends_and_locations})}
+     |> push_event("update_friends_list", %{friends_and_locations: online_friends_and_locations})}
   end
 
   @impl true
   def handle_event("exclude_friends_locations", _, socket) do
-    Subscribing.unsubscribe_from_friends(socket.assigns.friends)
+    Enum.each(socket.assigns.friends_ids, fn {user_id, _status} ->
+      Subscribing.unsubscribe(user_id)
+    end)
 
     {:noreply,
      socket
-     |> assign(include_friends_locations: false, friends: [])
+     |> assign(
+       include_friends_locations: false,
+       friends_ids: MapSet.new(),
+       online_friends: []
+     )
      |> push_event("update_friends_list", %{friends_and_locations: []})}
   end
 
@@ -476,44 +415,13 @@ defmodule PinpointWeb.MapLive do
   end
 
   @impl true
-  def handle_info({:started_sharing, user_id, location}, socket) do
-    modify_socket_because_sharing_started(socket, user_id, location)
+  def handle_info({:updated_location, user_id, location}, socket) do
+    {:noreply, modify_socket_because_new_location(socket, user_id, location)}
   end
 
   @impl true
   def handle_info({:stopped_sharing, user_id}, socket) do
-    modify_socket_because_sharing_stopped(socket, user_id)
-  end
-
-  @impl true
-  def handle_info({:new_location, user_id, {x, y}}, socket) do
-    location = [x, y]
-
-    if user_id == socket.assigns.current_user.id do
-      {:noreply,
-       push_event(socket, "user_new_location", %{
-         type: :current_user,
-         location: location,
-         go_to: socket.assigns.tracking == :current_user
-       })}
-    else
-      {:noreply,
-       push_event(socket, "user_new_location", %{
-         type: :friend,
-         user_id: user_id,
-         location: location,
-         go_to: socket.assigns.tracking == user_id
-       })}
-    end
-  end
-
-  @impl true
-  def handle_info(:sharing_from_alternate_location, socket) do
-    {:noreply,
-     socket
-     |> assign(sharing_location: false)
-     |> push_event("youve_stopped_sharing", %{})
-     |> put_flash(:error, "You started sharing your location from another device.")}
+    {:noreply, modify_socket_because_sharing_stopped(socket, user_id)}
   end
 
   @impl true
@@ -521,12 +429,12 @@ defmodule PinpointWeb.MapLive do
     if socket.assigns.include_friends_locations do
       Subscribing.subscribe(user_id)
 
-      case Locations.get_value_from_cache(user_id) do
-        {_, location} ->
-          modify_socket_because_sharing_started(socket, user_id, location)
+      case Locations.get_info(user_id) do
+        nil ->
+          {:noreply, update(socket, :friends_ids, &Map.put(&1, user_id, false))}
 
-        _ ->
-          {:noreply, socket}
+        {_pid, location} ->
+          {:noreply, modify_socket_because_new_location(socket, user_id, location)}
       end
     else
       {:noreply, socket}
@@ -537,9 +445,116 @@ defmodule PinpointWeb.MapLive do
   def handle_info({:updated_sharing_status, user_id, false}, socket) do
     if socket.assigns.include_friends_locations do
       Subscribing.unsubscribe(user_id)
-      modify_socket_because_sharing_stopped(socket, user_id)
+
+      {:noreply,
+       socket
+       |> update(:friends_ids, &Map.delete(&1, user_id))
+       |> modify_socket_because_sharing_stopped(user_id)}
     else
       {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_info({:EXIT, process, reason}, socket) do
+    if process == socket.assigns.sharing_process do
+      {:noreply,
+       socket
+       |> put_flash(
+         :error,
+         case reason do
+           :allow_alternate_broadcaster ->
+             "You started sharing your location from another device."
+
+           _ ->
+             "You stopped sharing for an unknown reason."
+         end
+       )
+       |> modify_socket_and_stop_sharing()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp modify_socket_because_new_location(socket, user_id, location) do
+    cond do
+      user_id == socket.assigns.current_user.id ->
+        socket
+        |> assign(current_user_is_sharing: true)
+        |> push_event("user_new_location", %{type: :current_user, location: location})
+
+      socket.assigns.include_friends_locations and
+          socket.assigns.friends_ids[user_id] ->
+        push_event(socket, "user_new_location", %{
+          type: :friend,
+          user_id: user_id,
+          location: location
+        })
+
+      socket.assigns.include_friends_locations ->
+        user = user_id |> Accounts.get_user!() |> Map.take(@safe_user_columns)
+
+        socket
+        |> update(
+          :online_friends,
+          fn friends ->
+            Enum.sort_by([user | friends], &String.downcase(&1.name))
+          end
+        )
+        |> update(:friends_ids, &Map.put(&1, user_id, true))
+        |> push_event("user_started_sharing", %{type: :friend, user: user, location: location})
+
+      true ->
+        socket
+    end
+  end
+
+  defp modify_socket_because_sharing_stopped(socket, user_id) do
+    cond do
+      user_id == socket.assigns.current_user.id ->
+        socket
+        |> assign(current_user_is_sharing: false)
+        |> update(
+          :tracking,
+          fn
+            :current_user -> nil
+            tracking_else -> tracking_else
+          end
+        )
+        |> push_event("user_stopped_sharing", %{type: :current_user})
+
+      socket.assigns.include_friends_locations ->
+        socket
+        |> update(:online_friends, &Enum.reject(&1, fn user -> user.id == user_id end))
+        |> update(:friends_ids, &Map.replace(&1, user_id, false))
+        |> update(
+          :tracking,
+          fn
+            ^user_id -> nil
+            tracking_else -> tracking_else
+          end
+        )
+        |> push_event("user_stopped_sharing", %{type: :friend, user_id: user_id})
+
+      true ->
+        socket
+    end
+  end
+
+  defp modify_socket_and_stop_sharing(socket) do
+    Broadcaster.stop(socket.assigns.sharing_process)
+
+    socket
+    |> assign(sharing_process: nil)
+    |> push_event("youve_stopped_sharing", %{})
+  end
+
+  defp toggle_friends_list(js \\ %JS{}) do
+    js
+    |> JS.toggle(to: "#friends-list")
+    # The two steps below were adapted from
+    # https://github.com/phoenixframework/phoenix_live_view/pull/1721#issuecomment-1083130244.
+    |> JS.remove_class("rotate-90", to: "#toggle-friends-list-caret")
+    |> JS.add_class("rotate-90", to: "#toggle-friends-list-caret:not(.rotate-90)")
   end
 end

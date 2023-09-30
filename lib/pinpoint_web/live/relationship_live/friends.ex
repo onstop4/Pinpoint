@@ -1,5 +1,5 @@
 defmodule PinpointWeb.RelationshipLive.Friends do
-  alias Pinpoint.Locations.Broadcasting
+  alias Pinpoint.Locations
   alias Pinpoint.Accounts
   alias Pinpoint.Accounts.User
   use PinpointWeb, :live_view
@@ -109,7 +109,7 @@ defmodule PinpointWeb.RelationshipLive.Friends do
     {:ok, friendship_info} =
       FriendshipInfoRepo.update_friendship_info(friendship_info, %{share_location: status})
 
-    Broadcasting.update_sharing_status(current_user.id, other_user_id, status)
+    Locations.update_sharing_status(current_user.id, other_user_id, status)
 
     {:noreply,
      stream_insert(

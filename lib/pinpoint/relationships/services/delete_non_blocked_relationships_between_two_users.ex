@@ -1,11 +1,11 @@
 defmodule Pinpoint.Relationships.Services.DeleteNonBlockedRelationshipsBetweenTwoUsers do
   import Ecto.Query
-  alias Pinpoint.Locations.Broadcasting
+  alias Pinpoint.Locations
   alias Pinpoint.Repo
   alias Pinpoint.Relationships.Relationship
 
   def call(user1_id, user2_id) do
-    Broadcasting.update_sharing_status(user1_id, user2_id, false)
+    Locations.update_sharing_status(user1_id, user2_id, false)
 
     from(
       relationship in Relationship,
