@@ -296,7 +296,7 @@ defmodule PinpointWeb.MapLive do
         socket
       end
 
-    {:ok, socket, layout: false}
+    {:ok, socket, layout: {PinpointWeb.Layouts, :basic}}
   end
 
   @impl true
@@ -464,13 +464,13 @@ defmodule PinpointWeb.MapLive do
          :error,
          case reason do
            :allow_alternate_broadcaster ->
-             "You started sharing your location from another device."
+             "You stopped sharing your location from this device because you started sharing from another device."
 
            _ ->
-             "You stopped sharing for an unknown reason."
+             "You stopped sharing your location from this device."
          end
        )
-       |> modify_socket_and_stop_sharing()}
+       |> modify_socket_and_stop_sharing(false)}
     else
       {:noreply, socket}
     end
@@ -541,8 +541,10 @@ defmodule PinpointWeb.MapLive do
     end
   end
 
-  defp modify_socket_and_stop_sharing(socket) do
-    Broadcaster.stop(socket.assigns.sharing_process)
+  defp modify_socket_and_stop_sharing(socket, kill_broadcaster \\ true) do
+    if kill_broadcaster do
+      Broadcaster.stop(socket.assigns.sharing_process)
+    end
 
     socket
     |> assign(sharing_process: nil)
