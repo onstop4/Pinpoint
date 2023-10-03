@@ -76,12 +76,12 @@ defmodule PinpointWeb.MapLive do
                     </svg>
                   </div>
                   <div>
-                    <%= if @sharing_process do %>
-                      <button phx-click="stop_sharing_process" class="font-semibold text-gray-900">
+                    <%= if @broadcaster do %>
+                      <button phx-click="stop_sharing_location" class="font-semibold text-gray-900">
                         Stop sharing <span class="absolute inset-0"></span>
                       </button>
                     <% else %>
-                      <button phx-click="start_sharing_process" class="font-semibold text-gray-900">
+                      <button phx-click="start_sharing_location" class="font-semibold text-gray-900">
                         Start sharing <span class="absolute inset-0"></span>
                       </button>
                     <% end %>
@@ -273,7 +273,7 @@ defmodule PinpointWeb.MapLive do
     socket =
       assign(socket,
         page_title: "Map",
-        sharing_process: nil,
+        broadcaster: nil,
         current_user_is_sharing: false,
         include_friends_locations: false,
         friends_ids: %{},
@@ -300,14 +300,14 @@ defmodule PinpointWeb.MapLive do
   end
 
   @impl true
-  def handle_event("start_sharing_process", _, socket) do
-    case socket.assigns.sharing_process do
+  def handle_event("start_sharing_location", _, socket) do
+    case socket.assigns.broadcaster do
       nil ->
         case Broadcaster.start_link(socket.assigns.current_user.id) do
           {:ok, pid} ->
             {:noreply,
              socket
-             |> assign(sharing_process: pid)
+             |> assign(broadcaster: pid)
              |> push_event("youve_started_sharing", %{})}
 
           {:error, :existing_broadcaster} ->
@@ -325,14 +325,18 @@ defmodule PinpointWeb.MapLive do
   end
 
   @impl true
-  def handle_event("stop_sharing_process", _, socket) do
+  def handle_event("stop_sharing_location", _, socket) do
     {:noreply, modify_socket_and_stop_sharing(socket)}
   end
 
   @impl true
   def handle_event("new_location", location = [x, y], socket)
       when is_number(x) and is_number(y) do
-    Broadcaster.update_location(socket.assigns.sharing_process, location)
+    case socket.assigns.broadcaster do
+      nil -> nil
+      process -> Broadcaster.update_location(process, location)
+    end
+
     {:noreply, socket}
   end
 
@@ -457,7 +461,7 @@ defmodule PinpointWeb.MapLive do
 
   @impl true
   def handle_info({:EXIT, process, reason}, socket) do
-    if process == socket.assigns.sharing_process do
+    if process == socket.assigns.broadcaster do
       {:noreply,
        socket
        |> put_flash(
@@ -543,11 +547,11 @@ defmodule PinpointWeb.MapLive do
 
   defp modify_socket_and_stop_sharing(socket, kill_broadcaster \\ true) do
     if kill_broadcaster do
-      Broadcaster.stop(socket.assigns.sharing_process)
+      Broadcaster.stop(socket.assigns.broadcaster)
     end
 
     socket
-    |> assign(sharing_process: nil)
+    |> assign(broadcaster: nil)
     |> push_event("youve_stopped_sharing", %{})
   end
 

@@ -2,6 +2,7 @@ import L from '../vendor/leaflet/leaflet.js';
 
 const markerIcon = new L.Icon.Default({
     iconUrl: '../../images/leaflet/marker-icon.png',
+    iconRetinaUrl: '../../images/leaflet/marker-icon-2x.png',
     shadowUrl: '../../images/leaflet/marker-shadow.png'
 })
 
@@ -37,7 +38,7 @@ export const MapHook = {
                         this.state.lastLocationOfCurrentUser = location
                     }
                 },
-                () => pushEvent('stop_sharing_location'),
+                () => this.pushEvent('stop_sharing_location'),
                 { enableHighAccuracy: true })
         })
 
@@ -46,8 +47,7 @@ export const MapHook = {
         })
 
         this.handleEvent('update_friends_list', payload => {
-            this.state.friendsLayerGroup.clearLayers()
-            this.state.friends = {}
+            this.removeAllFriends()
 
             for (let friend_and_location of payload.friends_and_locations) {
                 this.state.friends[friend_and_location.user.id] = friend_and_location.user
@@ -103,8 +103,7 @@ export const MapHook = {
     disconnected() {
         this.resetLocationWatcher()
         this.removeCurrentUserMarker()
-        this.state.friendsLayerGroup.clearLayers()
-        this.state.friends = {}
+        this.removeAllFriends()
     },
 
     destroyed() {
@@ -158,6 +157,12 @@ export const MapHook = {
             this.state.friendsLayerGroup.removeLayer(this.state.friendsMarkers[user_id])
             this.state.friendsMarkers[user_id] = null
         }
+    },
+
+    removeAllFriends() {
+        this.state.friendsLayerGroup.clearLayers()
+        this.state.friends = {}
+        this.state.friendsMarkers = {}
     },
 
     goToLocation(location) {
