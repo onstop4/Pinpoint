@@ -286,11 +286,11 @@ defmodule PinpointWeb.MapLive do
         Subscribing.subscribe(current_user_id)
 
         case Locations.get_info(current_user_id) do
-          nil ->
-            socket
-
-          {_pid, location} ->
+          {_pid, location} when is_list(location) ->
             modify_socket_because_new_location(socket, current_user_id, location)
+
+          _ ->
+            socket
         end
       else
         socket
