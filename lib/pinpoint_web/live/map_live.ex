@@ -320,7 +320,10 @@ defmodule PinpointWeb.MapLive do
 
   @impl true
   def handle_event("stop_sharing_location", _, socket) do
-    {:noreply, modify_socket_and_stop_sharing(socket)}
+    case socket.assigns.broadcaster do
+      nil -> {:noreply, socket}
+      _ -> {:noreply, modify_socket_and_stop_sharing(socket)}
+    end
   end
 
   @impl true
