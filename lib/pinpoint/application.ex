@@ -22,8 +22,8 @@ defmodule Pinpoint.Application do
       # {Pinpoint.Worker, arg},
     ]
 
-    :syn.add_node_to_scopes([Pinpoint.OnlineUsers])
     :syn.set_event_handler(SynEventHandler)
+    :syn.add_node_to_scopes([Pinpoint.OnlineUsers])
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
