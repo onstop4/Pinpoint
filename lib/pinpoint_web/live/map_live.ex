@@ -301,26 +301,20 @@ defmodule PinpointWeb.MapLive do
 
   @impl true
   def handle_event("start_sharing_location", _, socket) do
-    case socket.assigns.broadcaster do
-      nil ->
-        case Broadcaster.start_link(socket.assigns.current_user.id) do
-          {:ok, pid} ->
-            {:noreply,
-             socket
-             |> assign(broadcaster: pid)
-             |> push_event("youve_started_sharing", %{})}
-
-          {:error, :existing_broadcaster} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               "Couldn't start sharing from this device because you started sharing from another device."
-             )}
-        end
-
-      _ ->
-        {:noreply, socket}
+    with nil <- socket.assigns.broadcaster,
+         {:ok, pid} <- Broadcaster.start_link(socket.assigns.current_user.id) do
+      {:noreply,
+       socket
+       |> assign(broadcaster: pid)
+       |> push_event("youve_started_sharing", %{})}
+    else
+      {:error, :existing_broadcaster} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Couldn't start sharing from this device because you started sharing from another device."
+         )}
     end
   end
 
