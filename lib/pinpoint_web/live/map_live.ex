@@ -330,8 +330,15 @@ defmodule PinpointWeb.MapLive do
   def handle_event("new_location", location = [x, y], socket)
       when is_number(x) and is_number(y) do
     case socket.assigns.broadcaster do
-      nil -> nil
-      process -> Broadcaster.update_location(process, location)
+      nil ->
+        nil
+
+      process ->
+        try do
+          Broadcaster.update_location(process, location)
+        catch
+          :exit, _ -> nil
+        end
     end
 
     {:noreply, socket}
