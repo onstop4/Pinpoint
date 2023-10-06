@@ -4,6 +4,8 @@ defmodule Pinpoint.Locations.Broadcaster do
 
   use GenServer
 
+  @milliseconds_before_next_attempt 100
+
   def start_link(user_id) do
     GenServer.start_link(__MODULE__, user_id)
   end
@@ -25,14 +27,13 @@ defmodule Pinpoint.Locations.Broadcaster do
         {:ok, state}
 
       {:error, :taken} ->
-        {existing_pid, _location} = :syn.lookup(Pinpoint.OnlineUsers, user_id)
-        Process.exit(existing_pid, :allow_alternate_broadcaster)
-        Process.sleep(1)
-
-        case :syn.register(Pinpoint.OnlineUsers, user_id, self(), %{}) do
-          :ok -> {:ok, state}
-          {:error, :taken} -> {:error, :existing_broadcaster}
+        case Locations.get_info(user_id) do
+          {pid, _location} -> Process.exit(pid, :allow_alternate_broadcaster)
+          nil -> nil
         end
+
+        Process.sleep(@milliseconds_before_next_attempt)
+        init(user_id)
     end
   end
 

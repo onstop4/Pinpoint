@@ -307,14 +307,6 @@ defmodule PinpointWeb.MapLive do
        socket
        |> assign(broadcaster: pid)
        |> push_event("youve_started_sharing", %{})}
-    else
-      {:error, :existing_broadcaster} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "Couldn't start sharing from this device because you started sharing from another device."
-         )}
     end
   end
 
@@ -358,8 +350,11 @@ defmodule PinpointWeb.MapLive do
         :ok = Subscribing.subscribe(user.id)
 
         case Locations.get_info(user.id) do
-          nil -> {{user.id, false}, nil}
-          {_pid, location} -> {{user.id, true}, %{user: user, location: location}}
+          {_pid, location} when is_list(location) ->
+            {{user.id, true}, %{user: user, location: location}}
+
+          _ ->
+            {{user.id, false}, nil}
         end
       end)
       |> Enum.unzip()
