@@ -546,7 +546,11 @@ defmodule PinpointWeb.MapLive do
 
   defp modify_socket_and_stop_sharing(socket, kill_broadcaster \\ true) do
     if kill_broadcaster do
-      Broadcaster.stop(socket.assigns.broadcaster)
+      try do
+        Broadcaster.stop(socket.assigns.broadcaster)
+      catch
+        :exit, _ -> nil
+      end
     end
 
     socket
