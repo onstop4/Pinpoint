@@ -21,9 +21,13 @@ export const MapHook = {
         L.control.zoom({
             position: 'topright'
         }).addTo(this.state.map);
+        this.state.map.on('zoomend', () => {
+            this.goToTrackedUser()
+        })
 
         this.resetLocationWatcher()
         this.state.currentUserMarker = null
+        this.state.tracking = null
         this.state.friends = {}
         this.state.friendsMarkers = {}
         this.state.friendsLayerGroup = L.layerGroup([]).addTo(this.state.map)
@@ -81,22 +85,23 @@ export const MapHook = {
             } else if (payload.type == 'friend') {
                 this.addOrMoveFriendMarker(payload.user_id, payload.location)
             }
-
-            if (payload.go_to) {
-                this.goToLocation(payload.location)
-            }
         })
 
-        this.handleEvent('go_to_user', payload => {
+        this.handleEvent('track_user', payload => {
+            this.state.map.dragging.disable()
+
             if (payload.type == 'current_user') {
-                if (notNullOrUndefined(this.state.currentUserMarker)) {
-                    this.goToLocation(this.state.currentUserMarker.getLatLng())
-                }
+                this.state.tracking = 'current_user'
             } else if (payload.type == 'friend') {
-                if (notNullOrUndefined(this.state.friendsMarkers[payload.user_id])) {
-                    this.goToLocation(this.state.friendsMarkers[payload.user_id].getLatLng())
-                }
+                this.state.tracking = payload.user_id
             }
+
+            this.goToTrackedUser()
+        })
+
+        this.handleEvent('stop_tracking', () => {
+            this.state.map.dragging.enable()
+            this.state.tracking = null
         })
     },
 
@@ -129,12 +134,20 @@ export const MapHook = {
             marker.addTo(this.state.map)
             this.state.currentUserMarker = marker
         }
+
+        if (this.state.tracking == 'current_user') {
+            this.goToLocation(location)
+        }
     },
 
     removeCurrentUserMarker() {
         if (this.state.currentUserMarker) {
             this.state.map.removeLayer(this.state.currentUserMarker)
             this.state.currentUserMarker = null
+        }
+
+        if (this.state.tracking == 'current_user') {
+            this.state.map.dragging.enable()
         }
     },
 
@@ -150,6 +163,10 @@ export const MapHook = {
             marker.bindPopup(user.name)
             this.state.friendsMarkers[user_id] = marker
         }
+
+        if (this.state.tracking == user_id) {
+            this.goToLocation(location)
+        }
     },
 
     removeFriendMarker(user_id) {
@@ -157,15 +174,33 @@ export const MapHook = {
             this.state.friendsLayerGroup.removeLayer(this.state.friendsMarkers[user_id])
             this.state.friendsMarkers[user_id] = null
         }
+
+        if (this.state.tracking == user_id) {
+            this.state.map.dragging.enable()
+        }
     },
 
     removeAllFriends() {
         this.state.friendsLayerGroup.clearLayers()
         this.state.friends = {}
         this.state.friendsMarkers = {}
+
+        if (notNullOrUndefined(this.state.tracking) && this.state.tracking != 'current_user') {
+            this.state.map.dragging.enable()
+        }
     },
 
     goToLocation(location) {
         this.state.map.setView(location, this.state.map.getZoom())
+    },
+
+    goToTrackedUser() {
+        let tracking = this.state.tracking
+
+        if (tracking == 'current_user' && notNullOrUndefined(this.state.currentUserMarker)) {
+            this.goToLocation(this.state.currentUserMarker.getLatLng())
+        } else if (notNullOrUndefined(tracking) && notNullOrUndefined(this.state.friendsMarkers[tracking])) {
+            this.goToLocation(this.state.friendsMarkers[tracking].getLatLng())
+        }
     }
 }
