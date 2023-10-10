@@ -294,16 +294,8 @@ defmodule PinpointWeb.MapLive do
   @impl true
   def handle_event("new_location", location = [x, y], socket)
       when is_number(x) and is_number(y) do
-    case socket.assigns.broadcaster do
-      nil ->
-        nil
-
-      process ->
-        try do
-          Broadcaster.update_location(process, location)
-        catch
-          :exit, _ -> nil
-        end
+    if is_pid(socket.assigns.broadcaster) do
+      Broadcaster.update_location(socket.assigns.broadcaster, location)
     end
 
     {:noreply, socket}
@@ -396,10 +388,11 @@ defmodule PinpointWeb.MapLive do
   def handle_info({:updated_sharing_status, user_id, true}, socket) do
     if socket.assigns.include_friends_locations do
       Subscribing.subscribe(user_id)
+      socket = update(socket, :friends_ids, &Map.put(&1, user_id, false))
 
       case Locations.get_info(user_id) do
         nil ->
-          {:noreply, update(socket, :friends_ids, &Map.put(&1, user_id, false))}
+          {:noreply, socket}
 
         {_pid, location} ->
           {:noreply, modify_socket_because_new_location(socket, user_id, location)}
@@ -451,15 +444,14 @@ defmodule PinpointWeb.MapLive do
         |> assign(current_user_is_sharing: true)
         |> push_event("user_new_location", %{type: :current_user, location: location})
 
-      socket.assigns.include_friends_locations and
-          socket.assigns.friends_ids[user_id] ->
+      socket.assigns.include_friends_locations and socket.assigns.friends_ids[user_id] ->
         push_event(socket, "user_new_location", %{
           type: :friend,
           user_id: user_id,
           location: location
         })
 
-      socket.assigns.include_friends_locations ->
+      socket.assigns.include_friends_locations and socket.assigns.friends_ids[user_id] == false ->
         user = user_id |> Accounts.get_user!() |> Map.take(@safe_user_columns)
 
         socket

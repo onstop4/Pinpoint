@@ -15,7 +15,7 @@ defmodule Pinpoint.Locations.Broadcaster do
   end
 
   def update_location(server, new_location) do
-    GenServer.call(server, {:update_location, new_location})
+    GenServer.cast(server, {:update_location, new_location})
   end
 
   @impl true
@@ -38,7 +38,7 @@ defmodule Pinpoint.Locations.Broadcaster do
   end
 
   @impl true
-  def handle_call({:update_location, new_location}, _from, state = %{user_id: user_id}) do
+  def handle_cast({:update_location, new_location}, state = %{user_id: user_id}) do
     :syn.update_registry(Pinpoint.OnlineUsers, user_id, new_location)
 
     PubSub.broadcast!(
@@ -47,6 +47,6 @@ defmodule Pinpoint.Locations.Broadcaster do
       {:updated_location, user_id, new_location}
     )
 
-    {:reply, :ok, state}
+    {:noreply, state}
   end
 end
