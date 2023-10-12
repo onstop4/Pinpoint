@@ -257,6 +257,7 @@ defmodule PinpointWeb.MapLive do
     socket =
       if connected?(socket) do
         Subscribing.subscribe(current_user_id)
+        Subscribing.subscribe_to_personal(current_user_id)
 
         case Locations.get_info(current_user_id) do
           {_pid, location} when is_list(location) ->
